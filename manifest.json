@@ -1,0 +1,14 @@
+{
+  "name": "PlayUp API Extension",
+  "version": "1.0",
+  "manifest_version": 2,
+  "description": "An extension to make browsing the API in Chrome less painful.",
+  "background": {
+  	"scripts": ["background.js"]
+  },
+  "permissions": [
+  	"webRequest",
+  	"webRequestBlocking",
+    "http://*/"
+  ]
+}
