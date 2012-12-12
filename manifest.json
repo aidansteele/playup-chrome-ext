@@ -4,7 +4,7 @@
   "manifest_version": 2,
   "description": "An extension to make browsing the API in Chrome less painful.",
   "background": {
-  	"scripts": ["background.js"]
+  	"scripts": ["background.js", "jsSHA/src/sha256.js"]
   },
   "permissions": [
   	"webRequest",
