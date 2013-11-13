@@ -1,3 +1,5 @@
+var nextContentType = null;
+
 function playupHmac(method, url)
 {
   var key = localStorage["hmac-key"];
@@ -30,15 +32,33 @@ chrome.webRequest.onBeforeSendHeaders.addListener(
     localStorage["api-key"] = "<api key>";
     var api_key = localStorage["api-key"];
     
-    hdrs = info.requestHeaders;
-    hdrs.push({"name": "X-PlayUp-Api-Key", "value": api_key});
+    var new_hdrs = [];
+    var applied_content_type = false;
+
+    for (idx in info.responseHeaders)
+    {
+      hdr = info.responseHeaders[idx];
+
+      if (nextContentType === null || hdr.name.toLowerCase() !== "accept")
+      {
+        new_hdrs.push(hdr);
+      }
+    }
+
+    if (nextContentType !== null)
+    {
+      new_hdrs.push({"name": "Accept", "value": nextContentType + ", */*"});
+      nextContentType = null;
+    }
+
+    new_hdrs.push({"name": "X-PlayUp-Api-Key", "value": api_key});
 
     if (localStorage["hmac-key"] !== null && localStorage["hmac-key"])
     {
-      hdrs.push({"name": "Authorization", "value": playupHmac(info.method, info.url)});
+      new_hdrs.push({"name": "Authorization", "value": playupHmac(info.method, info.url)});
     }
 
-    return {"requestHeaders": hdrs};
+    return {"requestHeaders": new_hdrs};
   },
   {
     urls: [
@@ -124,3 +144,26 @@ chrome.webRequest.onHeadersReceived.addListener(
   },
   // extraInfoSpec
   ["blocking", "responseHeaders"]);
+
+chrome.webRequest.onBeforeRequest.addListener(
+  function(info) {
+    var customTypeCharIndex = info.url.lastIndexOf("$");
+
+    if (customTypeCharIndex > 0)
+    {
+      var url = info.url.substring(0, customTypeCharIndex);
+      nextContentType = info.url.substring(customTypeCharIndex + 1);
+
+      return {"redirectUrl": url};
+    }
+
+    return {};
+  },
+  {
+    urls: [
+      "*://*.playupdev.com/*",
+      "*://*.playup.com/*",
+      "*://localhost/*"
+    ]
+  },
+  ["blocking"]);
