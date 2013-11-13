@@ -30,11 +30,14 @@ chrome.webRequest.onBeforeSendHeaders.addListener(
     localStorage["api-key"] = "<api key>";
     var api_key = localStorage["api-key"];
     
-    auth_hdr = playupHmac(info.method, info.url);
-    
     hdrs = info.requestHeaders;
     hdrs.push({"name": "X-PlayUp-Api-Key", "value": api_key});
-    hdrs.push({"name": "Authorization", "value": auth_hdr});
+
+    if (localStorage["hmac-key"] !== null && localStorage["hmac-key"])
+    {
+      hdrs.push({"name": "Authorization", "value": playupHmac(info.method, info.url)});
+    }
+
     return {"requestHeaders": hdrs};
   },
   {
@@ -53,29 +56,40 @@ function playupRequest(method, url, async, callback)
   req.open(method, url, async);
   req.setRequestHeader("X-PlayUp-Api-Key", localStorage["api-key"]);
   req.setRequestHeader("Cache-Control", "no-cache");
-  req.setRequestHeader("Authorization", playupHmac(method, url));
+
+  if (localStorage["hmac-key"] !== null && localStorage["hmac-key"])
+  {
+    req.setRequestHeader("Authorization", playupHmac(method, url));
+  }
+
   req.onreadystatechange = function() {
     if (req.readyState != 4) return;
     var obj = JSON.parse(req.responseText);
     callback(obj);
   };
+
   req.send();
+}
+
+function getNewCreds(info)
+{
+  cred_url = "";
+  playupRequest("GET", info["url"], false, function(obj) {
+    cred_url = obj[":self"];
+  });
+        
+  playupRequest("POST", cred_url, false, function(obj) {
+    localStorage["hmac-key"] = obj["secret"];
+    localStorage["hmac-id"] = obj["id"];
+  });
 }
 
 chrome.webRequest.onCompleted.addListener(
   function(info) {
     if (info["statusCode"] == 401 && info["type"] == "main_frame")
     {
-      cred_url = "";
-      playupRequest("GET", info["url"], false, function(obj) {
-        cred_url = obj[":self"];
-      });
-            
-      playupRequest("POST", cred_url, false, function(obj) {
-        localStorage["hmac-key"] = obj["secret"];
-        localStorage["hmac-id"] = obj["id"];
-      });
-    } 
+      getNewCreds(info);
+    }
   }, {
       urls: [
       "*://*.playupdev.com/*",
